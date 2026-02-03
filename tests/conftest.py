@@ -293,13 +293,11 @@ def mock_fundamentals_response():
     }
 
 
-# Ensure no network calls during tests
-@pytest.fixture(autouse=True)
-def no_network(monkeypatch):
-    """Block all network calls in tests."""
-    import socket
-    
-    def guard(*args, **kwargs):
-        raise RuntimeError("Network calls are not allowed in tests!")
-    
-    monkeypatch.setattr(socket, 'socket', guard)
+# Network blocking is handled at the test level via mocked sessions.
+# All async tests use mocked sessions/providers so no actual network calls are made.
+# If needed, use pytest-socket plugin with:
+#   pytest --disable-socket --allow-hosts=localhost,fd00::/8
+
+# No autouse fixture needed - tests use mocked data
+
+

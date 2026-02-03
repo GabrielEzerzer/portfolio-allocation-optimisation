@@ -5,6 +5,7 @@ Fundamentals Agent - fetches fundamental data for tickers.
 import asyncio
 import time
 
+import numpy as np
 import pandas as pd
 
 from ..context import RunContext
@@ -160,7 +161,7 @@ class FundamentalsAgent(BaseAgent):
         # Size Score (log of market cap, normalized)
         if 'market_cap' in data.columns:
             mc = pd.to_numeric(data['market_cap'], errors='coerce')
-            log_mc = mc.apply(lambda x: pd.np.log10(x) if x and x > 0 else 0)
+            log_mc = mc.apply(lambda x: np.log10(x) if x and x > 0 else 0)
             mc_min, mc_max = log_mc.min(), log_mc.max()
             if mc_max > mc_min:
                 size_score = (log_mc - mc_min) / (mc_max - mc_min)
