@@ -13,19 +13,20 @@ from pathlib import Path
 # Patterns that commonly indicate secrets
 SECRET_PATTERNS = [
     # API Keys (generic patterns)
-    (r'["\']?api[_-]?key["\']?\s*[:=]\s*["\'][a-zA-Z0-9]{16,}["\']', 'API Key'),
-    (r'["\']?apikey["\']?\s*[:=]\s*["\'][a-zA-Z0-9]{16,}["\']', 'API Key'),
+    (r'(?i)["\']?api[_-]?key["\']?\s*[:=]\s*["\'][a-zA-Z0-9]{16,}["\']', 'API Key'),
+    (r'(?i)["\']?apikey["\']?\s*[:=]\s*["\'][a-zA-Z0-9]{16,}["\']', 'API Key'),
     
-    # Alpha Vantage specific
-    (r'["\']?[A-Z0-9]{16}["\']', 'Possible Alpha Vantage Key'),
+    # Alpha Vantage specific (16 chars, usually uppercase, avoiding common words)
+    # Added boundaries and excluded mixed case words that look like class names
+    (r'\b[A-Z0-9]{16}\b', 'Possible Alpha Vantage Key'),
     
     # AWS
-    (r'AKIA[0-9A-Z]{16}', 'AWS Access Key'),
-    (r'["\']?aws[_-]?secret["\']?\s*[:=]\s*["\'][a-zA-Z0-9/+]{40}["\']', 'AWS Secret'),
+    (r'\bAKIA[0-9A-Z]{16}\b', 'AWS Access Key'),
+    (r'(?i)["\']?aws[_-]?secret["\']?\s*[:=]\s*["\'][a-zA-Z0-9/+]{40}["\']', 'AWS Secret'),
     
     # Generic tokens
-    (r'["\']?token["\']?\s*[:=]\s*["\'][a-zA-Z0-9_-]{20,}["\']', 'Token'),
-    (r'["\']?secret["\']?\s*[:=]\s*["\'][a-zA-Z0-9_-]{20,}["\']', 'Secret'),
+    (r'(?i)["\']?token["\']?\s*[:=]\s*["\'][a-zA-Z0-9_-]{20,}["\']', 'Token'),
+    (r'(?i)["\']?secret["\']?\s*[:=]\s*["\'][a-zA-Z0-9_-]{20,}["\']', 'Secret'),
     
     # Private keys
     (r'-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----', 'Private Key'),
@@ -100,7 +101,8 @@ def scan_file(filepath: str) -> list[tuple[int, str, str]]:
                     continue
                 
                 for pattern, name in SECRET_PATTERNS:
-                    if re.search(pattern, line, re.IGNORECASE):
+                    # Note: case sensitivity is now handled by the pattern itself via (?i) if needed
+                    if re.search(pattern, line):
                         findings.append((line_num, name, line.strip()[:100]))
                         break  # One finding per line is enough
     except Exception as e:
@@ -111,7 +113,7 @@ def scan_file(filepath: str) -> list[tuple[int, str, str]]:
 
 def main() -> int:
     """Main entry point. Returns exit code."""
-    print("🔍 Scanning for secrets in tracked files...")
+    print("Scanning for secrets in tracked files...")
     
     files = get_tracked_files()
     total_findings = 0
@@ -125,17 +127,17 @@ def main() -> int:
         if findings:
             files_with_secrets.append(filepath)
             total_findings += len(findings)
-            print(f"\n❌ {filepath}:")
+            print(f"\n[FAIL] {filepath}:")
             for line_num, pattern_name, content in findings:
                 print(f"   Line {line_num} [{pattern_name}]: {content}")
     
     print()
     if total_findings > 0:
-        print(f"🚨 FAILED: Found {total_findings} potential secret(s) in {len(files_with_secrets)} file(s)")
+        print(f"FAILED: Found {total_findings} potential secret(s) in {len(files_with_secrets)} file(s)")
         print("   Please remove secrets and use environment variables or .env files instead.")
         return 1
     else:
-        print(f"✅ PASSED: No secrets detected in {len(files)} files")
+        print(f"PASSED: No secrets detected in {len(files)} files")
         return 0
 
 
