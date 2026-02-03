@@ -1,0 +1,141 @@
+# ACO Portfolio Optimizer Configuration
+# Copy to settings.local.yaml and fill in your API keys
+
+# Mode: live | cached | backtest
+mode: live
+
+# Data providers configuration
+providers:
+  primary: alphavantage
+  
+  alphavantage:
+    base_url: "https://www.alphavantage.co/query"
+    api_key: "${ALPHAVANTAGE_API_KEY:YOUR_API_KEY_HERE}"
+    rate_limit_per_minute: 5  # Free tier: 5/min, 25/day
+    timeout_seconds: 30
+    retries: 3
+    backoff_base: 2.0
+  
+  # Optional yfinance fallback (no API key needed)
+  yfinance:
+    enabled: true
+    rate_limit_per_minute: 60
+
+# Caching configuration
+cache:
+  enabled: true
+  path: "data/cache"
+  refresh_days: 1  # Re-fetch if cache older than N days
+  format: "parquet"  # parquet | json
+
+# Agent configuration
+agents:
+  # Universe agent - provides ticker list
+  universe:
+    enabled: true
+    fallback_file: "data/universe/sp500_seed.csv"
+    timeout_seconds: 60
+  
+  # Price history agent
+  price:
+    enabled: true
+    history_days: 365
+    timeout_seconds: 300
+  
+  # Technical indicators agent (purely computational)
+  technical:
+    enabled: true
+    timeout_seconds: 30
+    indicators:
+      - returns_1m
+      - returns_3m
+      - returns_6m
+      - volatility_21d
+      - volatility_63d
+      - momentum_200d
+      - rsi_14
+  
+  # Fundamentals agent
+  fundamentals:
+    enabled: true
+    timeout_seconds: 120
+    fields:
+      - market_cap
+      - pe_ratio
+      - eps
+      - sector
+  
+  # Sentiment agent (stubbed for MVP)
+  sentiment:
+    enabled: false
+    timeout_seconds: 60
+
+# Feature handling
+features:
+  # How to handle missing values
+  missing_value_strategy: fill_median  # drop | fill_median | fill_zero | use_cache
+  
+  # Required features - tickers missing these will be dropped
+  required_features:
+    - returns_1m
+    - volatility_21d
+  
+  # Normalization
+  normalize: true
+  normalization_method: zscore  # zscore | minmax
+
+# ACO Optimization parameters
+aco:
+  num_ants: 20
+  num_iterations: 50
+  evaporation_rate: 0.3
+  alpha: 1.0  # Pheromone importance
+  beta: 2.0   # Heuristic importance
+  weight_granularity: 0.05  # 5% weight chunks
+  random_seed: null  # Set for deterministic runs (e.g., 42)
+  
+  # Heuristic weights for combining features
+  heuristic_weights:
+    momentum: 0.3
+    returns: 0.3
+    inverse_volatility: 0.2
+    fundamentals_score: 0.2
+
+# Portfolio constraints
+constraints:
+  max_weight_per_ticker: 0.10  # 10% max per name
+  min_weight_threshold: 0.01   # Ignore weights below 1%
+  min_holdings: 5
+  max_holdings: 50
+  sum_weights_tolerance: 0.001  # Tolerance for sum = 1 check
+  sector_cap: null  # Optional: max weight per sector (e.g., 0.30)
+
+# Backtesting configuration
+backtest:
+  train_window_days: 252  # ~1 year of trading days
+  test_window_days: 21    # ~1 month
+  rebalance_frequency: monthly  # monthly | weekly
+  risk_free_rate: 0.0
+  initial_capital: 100000.0
+  transaction_cost: 0.001  # 0.1% per trade
+  
+  # Baseline strategies for comparison
+  baselines:
+    - equal_weight
+    - spy_benchmark
+
+# Output configuration
+output:
+  path: "data/outputs"
+  save_weights: true
+  save_metrics: true
+  save_diagnostics: true
+  format: json  # json | csv
+
+# Logging configuration
+logging:
+  level: INFO  # DEBUG | INFO | WARNING | ERROR
+  file: "logs/app.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  max_bytes: 10485760  # 10MB
+  backup_count: 5
