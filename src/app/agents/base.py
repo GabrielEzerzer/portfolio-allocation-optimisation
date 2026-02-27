@@ -98,7 +98,8 @@ class BaseAgent(ABC):
         data: pd.DataFrame,
         requested_count: int,
         latency_ms: float,
-        errors: list[str] | None = None
+        errors: list[str] | None = None,
+        override_coverage: int | None = None
     ) -> AgentResult:
         """
         Helper to create a properly formatted AgentResult.
@@ -108,11 +109,16 @@ class BaseAgent(ABC):
             requested_count: Number of tickers requested
             latency_ms: Time taken in milliseconds
             errors: List of error messages
+            override_coverage: If set, use this as the returned count
+                              (useful for multi-indexed data like prices)
         
         Returns:
             Formatted AgentResult
         """
-        returned_count = len(data) if not data.empty else 0
+        if override_coverage is not None:
+            returned_count = override_coverage
+        else:
+            returned_count = len(data) if not data.empty else 0
         coverage_ratio = returned_count / requested_count if requested_count > 0 else 0.0
         
         return AgentResult(

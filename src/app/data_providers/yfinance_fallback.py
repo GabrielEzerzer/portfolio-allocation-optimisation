@@ -3,7 +3,9 @@ yfinance fallback data provider.
 Uses the yfinance library for price data when primary provider is unavailable.
 """
 
+import asyncio
 from datetime import date
+from functools import partial
 
 import pandas as pd
 
@@ -62,9 +64,12 @@ class YFinanceProvider(DataProvider):
         try:
             yf = self._get_yf()
             
-            # yfinance is synchronous
+            # Run synchronous yfinance call in executor to avoid blocking the event loop
+            loop = asyncio.get_event_loop()
             stock = yf.Ticker(ticker)
-            df = stock.history(start=start.isoformat(), end=end.isoformat())
+            df = await loop.run_in_executor(
+                None, partial(stock.history, start=start.isoformat(), end=end.isoformat())
+            )
             
             if df.empty:
                 return ProviderResponse(
@@ -122,7 +127,9 @@ class YFinanceProvider(DataProvider):
             yf = self._get_yf()
             
             stock = yf.Ticker(ticker)
-            info = stock.info
+            # Run synchronous yfinance call in executor
+            loop = asyncio.get_event_loop()
+            info = await loop.run_in_executor(None, lambda: stock.info)
             
             if not info:
                 return ProviderResponse(

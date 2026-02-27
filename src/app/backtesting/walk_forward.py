@@ -15,7 +15,7 @@ from ..config import BacktestConfig
 from ..context import RunContext
 from ..operator import Operator
 from ..optimization import ACOOptimizer, Portfolio
-from ..utils import format_date, get_trading_days, iter_monthly_dates
+from ..utils import format_date, get_trading_days, get_trading_days_back, iter_monthly_dates
 from .metrics import (
     calculate_all_metrics,
     calculate_cumulative_return,
@@ -199,25 +199,25 @@ class WalkForwardBacktester:
                 f"train ends {train_end}, test {test_start} to {test_end}"
             )
             
-            # Get training data
-            train_start = train_end - timedelta(days=self.config.train_window_days)
+            # Get training data — use trading days, not calendar days
+            train_start = get_trading_days_back(train_end, self.config.train_window_days)
             train_returns = self._filter_returns(returns, train_start, train_end)
             
             if train_returns.empty or len(train_returns) < 20:
                 self.logger.warning(f"Insufficient training data for window {i + 1}")
                 continue
             
-            # Get features for optimization (as of train_end)
-            # Use latest available features from operator result
-            features = operator_result.features.copy()
-            
             # Filter to tickers with training data
             available_tickers = [
-                t for t in features.index
+                t for t in universe
                 if t in train_returns.columns and train_returns[t].notna().sum() > 20
             ]
-            features = features.loc[available_tickers]
             train_returns = train_returns[available_tickers]
+            
+            # Recompute features from ONLY train-period prices to avoid look-ahead bias
+            features = self._compute_window_features(
+                operator_result, available_tickers, train_start, train_end
+            )
             
             if len(features) < self.config.min_holdings_for_backtest:
                 self.logger.warning(
@@ -293,6 +293,55 @@ class WalkForwardBacktester:
         mask = (returns.index >= start) & (returns.index <= end)
         return returns.loc[mask]
     
+    def _compute_window_features(
+        self,
+        operator_result,
+        tickers: list[str],
+        train_start: date,
+        train_end: date
+    ) -> 'pd.DataFrame':
+        """
+        Recompute features from train-period data only to avoid look-ahead bias.
+        
+        Technical indicators are recomputed from the train slice of prices.
+        Fundamentals (which are point-in-time) are taken from the operator result.
+        """
+        from ..agents import TechnicalIndicatorAgent
+        
+        # Start with fundamentals from the operator (point-in-time, no look-ahead issue)
+        base_features = operator_result.features.copy()
+        # Keep only fundamental columns
+        fund_cols = [c for c in base_features.columns if c.startswith('fund_')]
+        features = base_features.loc[
+            base_features.index.isin(tickers), fund_cols
+        ].copy()
+        
+        # Recompute technical indicators from train-period prices only
+        price_data = operator_result.price_data
+        if not price_data.empty:
+            tech_agent = TechnicalIndicatorAgent()
+            for ticker in tickers:
+                if ticker not in price_data.index.get_level_values('ticker'):
+                    continue
+                ticker_prices = price_data.loc[ticker].copy()
+                # Filter to train period only
+                mask = (ticker_prices.index >= train_start) & (ticker_prices.index <= train_end)
+                ticker_train = ticker_prices.loc[mask]
+                if len(ticker_train) < 21:
+                    continue
+                close = ticker_train['close'].sort_index()
+                # Compute each indicator from train data
+                for indicator in ['returns_1m', 'returns_3m', 'volatility_21d', 'momentum_200d', 'rsi_14']:
+                    val = tech_agent._compute_indicator(indicator, close, ticker_train)
+                    if val is not None:
+                        features.loc[ticker, indicator] = val
+        
+        # Drop tickers that ended up with no indicators
+        if 'returns_1m' in features.columns:
+            features = features.dropna(subset=['returns_1m'])
+        
+        return features
+
     async def _optimize_for_window(
         self,
         features: pd.DataFrame,

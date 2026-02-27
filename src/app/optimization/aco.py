@@ -152,6 +152,14 @@ class ACOOptimizer:
         )
         best_portfolio = best_portfolio.normalize()  # Re-normalize after threshold
         
+        # Recompute fitness for the final post-processed portfolio
+        if best_portfolio.weights:
+            final_fitness, final_diag = self.fitness_calculator.calculate(
+                best_portfolio.weights, returns, sectors
+            )
+            best_portfolio.fitness = final_fitness
+            best_portfolio.diagnostics.update(final_diag)
+        
         # Update diagnostics
         best_portfolio.diagnostics['iterations'] = len(fitness_history)
         best_portfolio.diagnostics['fitness_history'] = fitness_history
@@ -159,11 +167,22 @@ class ACOOptimizer:
         
         return best_portfolio
     
+    def _safe_normalize(self, vals: np.ndarray) -> np.ndarray:
+        """Normalize values to 0-1, handling NaN and constant arrays."""
+        # Replace NaN with median
+        if np.any(np.isnan(vals)):
+            median = np.nanmedian(vals)
+            vals = np.where(np.isnan(vals), median, vals)
+        val_range = np.nanmax(vals) - np.nanmin(vals)
+        if val_range < 1e-10:
+            return np.full_like(vals, 0.5)
+        return (vals - np.nanmin(vals)) / val_range
+    
     def _compute_heuristic(self, features: pd.DataFrame) -> np.ndarray:
         """
         Compute heuristic desirability for each ticker.
         
-        Higher values = more desirable.
+        Higher values = more desirable. NaN-safe.
         """
         n_tickers = len(features)
         heuristic = np.ones(n_tickers)
@@ -174,33 +193,32 @@ class ACOOptimizer:
         if 'momentum' in weights:
             for col in ['momentum_200d', 'momentum_200d_norm']:
                 if col in features.columns:
-                    # Normalize to 0-1 range
-                    vals = features[col].values
-                    normalized = (vals - vals.min()) / (vals.max() - vals.min() + 1e-10)
-                    heuristic += weights['momentum'] * normalized
+                    vals = features[col].values.astype(float)
+                    heuristic += weights['momentum'] * self._safe_normalize(vals)
                     break
         
         # Returns contribution
         if 'returns' in weights:
             for col in ['returns_1m', 'returns_1m_norm', 'returns_3m', 'returns_3m_norm']:
                 if col in features.columns:
-                    vals = features[col].values
-                    normalized = (vals - vals.min()) / (vals.max() - vals.min() + 1e-10)
-                    heuristic += weights['returns'] * normalized
+                    vals = features[col].values.astype(float)
+                    heuristic += weights['returns'] * self._safe_normalize(vals)
                     break
         
         # Inverse volatility (lower vol = higher score)
         if 'inverse_volatility' in weights:
             for col in ['volatility_21d', 'volatility_21d_norm']:
                 if col in features.columns:
-                    vals = features[col].values
-                    # Inverse and normalize
+                    vals = features[col].values.astype(float)
+                    # Replace NaN before inversion
+                    if np.any(np.isnan(vals)):
+                        vals = np.where(np.isnan(vals), np.nanmedian(vals), vals)
                     inv_vals = 1.0 / (vals + 0.01)
-                    normalized = (inv_vals - inv_vals.min()) / (inv_vals.max() - inv_vals.min() + 1e-10)
-                    heuristic += weights['inverse_volatility'] * normalized
+                    heuristic += weights['inverse_volatility'] * self._safe_normalize(inv_vals)
                     break
         
-        # Ensure positive values
+        # Ensure positive values and no NaN
+        heuristic = np.nan_to_num(heuristic, nan=1.0)
         heuristic = np.maximum(heuristic, 0.1)
         
         return heuristic

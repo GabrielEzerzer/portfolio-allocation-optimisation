@@ -10,7 +10,7 @@ providers:
   
   alphavantage:
     base_url: "https://www.alphavantage.co/query"
-    api_key: "D1JN1A3XC05B4I5E"
+    api_key: "TDFSQ7PT9YORUI3T"
     rate_limit_per_minute: 5  # Free tier: 5/min, 25/day
     timeout_seconds: 30
     retries: 3

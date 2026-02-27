@@ -194,12 +194,14 @@ class CacheManager:
             namespace_dir = self.cache_dir / namespace
             if namespace_dir.exists():
                 for f in namespace_dir.iterdir():
-                    f.unlink()
-                    count += 1
+                    if f.is_file():
+                        f.unlink()
+                        count += 1
         else:
             for namespace_dir in self.cache_dir.iterdir():
                 if namespace_dir.is_dir():
                     for f in namespace_dir.iterdir():
-                        f.unlink()
-                        count += 1
+                        if f.is_file():
+                            f.unlink()
+                            count += 1
         return count

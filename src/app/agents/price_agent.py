@@ -109,7 +109,8 @@ class PriceHistoryAgent(BaseAgent):
             f"in {latency_ms:.0f}ms"
         )
         
-        return self._create_result(combined, len(universe), latency_ms, errors)
+        return self._create_result(combined, len(universe), latency_ms, errors,
+                                    override_coverage=len(all_data))
     
     def get_prices_for_ticker(
         self,

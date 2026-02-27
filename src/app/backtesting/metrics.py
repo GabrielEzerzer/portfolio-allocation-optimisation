@@ -180,7 +180,9 @@ def calculate_information_ratio(
     
     active_returns = aligned['portfolio'] - aligned['benchmark']
     
-    annualized_active = calculate_annualized_return(active_returns, periods_per_year)
+    # Use simple mean-based annualization for active returns
+    # (compound-based annualization breaks when cumulative < -1)
+    annualized_active = active_returns.mean() * periods_per_year
     tracking_error = calculate_volatility(active_returns, periods_per_year)
     
     if tracking_error == 0:

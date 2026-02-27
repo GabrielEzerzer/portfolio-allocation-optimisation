@@ -22,10 +22,11 @@ class Portfolio:
     
     def __post_init__(self):
         """Ensure weights are properly initialized."""
-        # Filter out zero/negligible weights
+        # Only filter out truly zero weights (not small positive ones)
+        # Real cleanup is done explicitly via apply_min_threshold()
         self.weights = {
             k: v for k, v in self.weights.items()
-            if v > 0.001
+            if v > 0
         }
     
     @property

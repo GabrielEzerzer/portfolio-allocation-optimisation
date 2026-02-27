@@ -27,13 +27,15 @@ class TestPortfolio:
         assert portfolio.max_weight == 0.4
     
     def test_portfolio_filters_negligible_weights(self):
-        """Test that weights below threshold are filtered."""
-        weights = {'AAPL': 0.5, 'MSFT': 0.0005, 'GOOGL': 0.499}
+        """Test that zero weights are filtered but small positive weights are kept."""
+        weights = {'AAPL': 0.5, 'MSFT': 0.0, 'GOOGL': 0.499, 'AMZN': 0.0005}
         portfolio = Portfolio(weights)
         
-        # 0.0005 should be filtered out (< 0.001)
+        # 0.0 should be filtered out
         assert 'MSFT' not in portfolio.weights
-        assert portfolio.num_holdings == 2
+        # Small positive weights are preserved (cleanup via apply_min_threshold)
+        assert 'AMZN' in portfolio.weights
+        assert portfolio.num_holdings == 3
     
     def test_portfolio_normalization(self):
         """Test portfolio normalization."""
