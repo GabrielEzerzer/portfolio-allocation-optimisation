@@ -16,3 +16,7 @@ pytest-socket>=0.7.0
 
 # Added for yfinance parquet support
 pyarrow>=15.0.0
+
+# UI Utilities
+streamlit>=1.30.0
+plotly>=5.18.0

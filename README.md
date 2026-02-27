@@ -45,22 +45,18 @@ pip install -r requirements.txt
    set ALPHAVANTAGE_API_KEY=your_key_here
    ```
 
-### Running
+### Running the Application
 
-#### Live Mode (with API key)
+The **highly recommended** way to interact with the ACO Optimizer is through the Web Dashboard. The beautiful Streamlit UI lets you configure everything interactively without dealing with CLI flags.
+
 ```bash
-python -m src.app.main --mode live --tickers AAPL,MSFT,GOOGL,AMZN,META --seed 42
+# Launch the Web Dashboard
+python -m streamlit run streamlit_app.py
 ```
 
-#### Cached Mode (no API calls)
-```bash
-python -m src.app.main --mode cached --tickers AAPL,MSFT,GOOGL --config config/settings.example.yaml
-```
+This will automatically open the UI in your default web browser at `http://localhost:8501`.
 
-#### Backtest Mode
-```bash
-python -m src.app.main --mode backtest --tickers AAPL,MSFT,GOOGL,AMZN,META --start 2023-01-01 --end 2024-01-01 --seed 42
-```
+*(Alternatively, you can still run the engine via the CLI using `python -m src.app.main --mode live ...`)*
 
 ### Running Tests
 
