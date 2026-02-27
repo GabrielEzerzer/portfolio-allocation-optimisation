@@ -6,11 +6,11 @@ mode: live
 
 # Data providers configuration
 providers:
-  primary: alphavantage
+  primary: yfinance
   
   alphavantage:
     base_url: "https://www.alphavantage.co/query"
-    api_key: "${ALPHAVANTAGE_API_KEY:YOUR_API_KEY_HERE}"
+    api_key: "D1JN1A3XC05B4I5E"
     rate_limit_per_minute: 5  # Free tier: 5/min, 25/day
     timeout_seconds: 30
     retries: 3
@@ -86,12 +86,12 @@ features:
 
 # ACO Optimization parameters
 aco:
-  num_ants: 20
-  num_iterations: 50
-  evaporation_rate: 0.3
+  num_ants: 30
+  num_iterations: 100
+  evaporation_rate: 0.15
   alpha: 1.0  # Pheromone importance
   beta: 2.0   # Heuristic importance
-  weight_granularity: 0.05  # 5% weight chunks
+  weight_granularity: 0.02  # 2% weight chunks (finer = more diverse portfolios)
   random_seed: null  # Set for deterministic runs (e.g., 42)
   
   # Heuristic weights for combining features
@@ -103,7 +103,7 @@ aco:
 
 # Portfolio constraints
 constraints:
-  max_weight_per_ticker: 0.10  # 10% max per name
+  max_weight_per_ticker: 0.20  # 20% max per name (gives ants room to explore)
   min_weight_threshold: 0.01   # Ignore weights below 1%
   min_holdings: 5
   max_holdings: 50

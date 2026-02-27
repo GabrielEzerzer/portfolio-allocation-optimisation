@@ -80,6 +80,10 @@ class ACOOptimizer:
         # Initialize pheromone uniformly
         self.pheromone = np.ones((n_tickers, self.max_units + 1))
         
+        # MMAS-style pheromone bounds to prevent stagnation
+        self.tau_min = 0.1
+        self.tau_max = 10.0
+        
         # Compute heuristic desirability from features
         self.heuristic = self._compute_heuristic(features)
         
@@ -113,8 +117,15 @@ class ACOOptimizer:
             # Evaporate pheromone
             self.pheromone *= (1 - self.evaporation_rate)
             
-            # Deposit pheromone from best ants
+            # Deposit pheromone from iteration-best ants
             self._update_pheromone(ant_portfolios)
+            
+            # Also reinforce from global best (elitist strategy)
+            if best_portfolio is not None:
+                self._deposit_for_portfolio(best_portfolio, weight=2.0)
+            
+            # Clamp pheromone to MMAS bounds
+            np.clip(self.pheromone, self.tau_min, self.tau_max, out=self.pheromone)
             
             # Track progress
             avg_fitness = np.mean([p.fitness for p in ant_portfolios])
@@ -239,8 +250,37 @@ class ACOOptimizer:
         
         return weights
     
+    def _deposit_for_portfolio(self, portfolio: Portfolio, weight: float = 1.0) -> None:
+        """
+        Deposit pheromone for a single portfolio along its full allocation path.
+        
+        For a ticker allocated k units, we deposit at every level 1..k,
+        reinforcing the "trail" the ant walked.
+        """
+        # Shift fitness so deposits always happen (even for negative Sharpe)
+        # Use a baseline shift so the worst ant still deposits a small amount
+        deposit_base = max(portfolio.fitness + 5.0, 0.01)
+        deposit = deposit_base * weight
+        
+        for ticker, w in portfolio.weights.items():
+            if ticker not in self.tickers:
+                continue
+            
+            ticker_idx = self.tickers.index(ticker)
+            units = int(w / self.weight_granularity)
+            
+            # Deposit along the full path: levels 1..units
+            for u in range(1, min(units, self.max_units) + 1):
+                self.pheromone[ticker_idx, u] += deposit
+    
     def _update_pheromone(self, portfolios: list[Portfolio]) -> None:
-        """Update pheromone based on portfolio fitness."""
+        """
+        Update pheromone based on portfolio fitness.
+        
+        Uses an elitist strategy: top 20% of ants deposit pheromone,
+        with deposit amount proportional to (shifted) fitness and
+        decreasing with rank.
+        """
         # Sort by fitness
         sorted_portfolios = sorted(portfolios, key=lambda p: p.fitness, reverse=True)
         
@@ -248,21 +288,9 @@ class ACOOptimizer:
         n_elite = max(1, len(portfolios) // 5)  # Top 20%
         
         for rank, portfolio in enumerate(sorted_portfolios[:n_elite]):
-            if portfolio.fitness <= 0:
-                continue
-            
             # Deposit amount decreases with rank
-            deposit = portfolio.fitness / (rank + 1)
-            
-            for ticker, weight in portfolio.weights.items():
-                if ticker not in self.tickers:
-                    continue
-                
-                ticker_idx = self.tickers.index(ticker)
-                units = int(weight / self.weight_granularity)
-                
-                if 0 <= units <= self.max_units:
-                    self.pheromone[ticker_idx, units] += deposit
+            rank_weight = 1.0 / (rank + 1)
+            self._deposit_for_portfolio(portfolio, weight=rank_weight)
     
     def _get_top_pheromone(self, n: int) -> list[tuple[str, float]]:
         """Get tickers with highest average pheromone."""

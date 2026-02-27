@@ -13,3 +13,6 @@ yfinance>=0.2.40
 pytest>=8.0.0
 pytest-asyncio>=0.23.0
 pytest-socket>=0.7.0
+
+# Added for yfinance parquet support
+pyarrow>=15.0.0
