@@ -217,6 +217,12 @@ class ACOOptimizer:
                     heuristic += weights['inverse_volatility'] * self._safe_normalize(inv_vals)
                     break
         
+        # Fundamentals score
+        if 'fundamentals_score' in weights:
+            if 'fundamentals_score' in features.columns:
+                vals = features['fundamentals_score'].values.astype(float)
+                heuristic += weights['fundamentals_score'] * self._safe_normalize(vals)
+        
         # Ensure positive values and no NaN
         heuristic = np.nan_to_num(heuristic, nan=1.0)
         heuristic = np.maximum(heuristic, 0.1)

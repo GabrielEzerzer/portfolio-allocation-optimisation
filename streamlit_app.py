@@ -43,8 +43,8 @@ st.sidebar.header("⚙️ Configuration")
 
 run_mode = st.sidebar.radio(
     "Run Mode",
-    options=["Optimization", "Walk-Forward Backtest"],
-    help="Optimization runs on current data. Backtest simulates past performance.",
+    options=["Live Optimization", "Cached Optimization", "Walk-Forward Backtest"],
+    help="Live Optimization fetches fresh data. Cached Optimization uses previously downloaded files. Backtest simulates past performance.",
 )
 
 st.sidebar.subheader("Universe")
@@ -94,8 +94,13 @@ def setup_context(universe_mode: str) -> RunContext:
     elif universe_mode == "S&P 500 (Top 100)":
         config.universe_size = 100
         
-    mode_str = "backtest" if run_mode == "Walk-Forward Backtest" else "live"
-    
+    if run_mode == "Walk-Forward Backtest":
+        mode_str = "backtest"
+    elif run_mode == "Cached Optimization":
+        mode_str = "cached"
+    else:
+        mode_str = "live"
+        
     # Make a dummy logger
     logger = logging.getLogger("streamlit_logger")
     logger.setLevel(logging.INFO)
@@ -295,7 +300,7 @@ if run_button:
         if not universe_list:
             universe_list = ["AAPL","MSFT"] # fallback so it doesn't crash if custom is chosen but empty
         
-    if run_mode == "Optimization":
+    if run_mode in ["Live Optimization", "Cached Optimization"]:
         run_optimization_ui(universe_list, universe_mode)
     else:
         if end_date <= start_date:
